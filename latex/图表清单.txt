@@ -1,0 +1,123 @@
+================================================================================
+Results 章节图表完整清单
+================================================================================
+
+📊 表格 (2个)
+================================================================================
+Table 1: Clustering Statistics Summary (行717)
+  - Total Samples: 83,362
+  - Number of Clusters: 530
+  - Clustered/Noise samples
+
+Table 2: Clustering Quality Metrics (行735)
+  - Silhouette Score: 0.5550
+  - Davies-Bouldin Index: 0.6016
+  - Calinski-Harabasz Index: 20,427
+
+📈 图表 (9张,从10张中选用)
+================================================================================
+
+主要分析图表 (5张):
+--------------------
+Figure 1: 聚类散点图 - Spectral配色 (行760)
+  文件: figures/1_clustering_scatter_spectral.png
+  大小: 0.48\textwidth
+  说明: 530个簇的2D UMAP可视化
+
+Figure 2: 簇大小分布 - 双图并排 (行772-774)
+  文件: figures/4_cluster_size_distribution_bar.png
+        figures/5_cluster_size_histogram.png
+  大小: 0.48\textwidth each (figure*)
+  说明: 柱状图+直方图
+
+Figure 3: 噪声点分布 (行787)
+  文件: figures/8_noise_points_highlighted.png
+  大小: 0.48\textwidth
+  说明: 45.12%噪声点的空间分布
+
+补充可视化 (4张小图):
+--------------------
+Figure 4: Viridis配色散点图 (行800)
+  文件: figures/2_clustering_scatter_viridis.png
+  大小: 0.45\textwidth
+  说明: 连续色谱视角
+
+Figure 5: 簇大小箱线图 (行807)
+  文件: figures/6_cluster_size_boxplot.png
+  大小: 0.45\textwidth
+  说明: 统计分布(均值86,中位数51)
+
+Figure 6: 噪声分布饼图 (行814)
+  文件: figures/7_noise_distribution_pie.png
+  大小: 0.45\textwidth
+  说明: 54.88% vs 45.12%
+
+Figure 7: Top 20最大簇 (行821)
+  文件: figures/9_top20_largest_clusters.png
+  大小: 0.45\textwidth
+  说明: 幂律分布展示
+
+综合仪表盘 (1张大图):
+--------------------
+Figure 8: 综合分析仪表盘 (行833)
+  文件: figures/10_comprehensive_dashboard.png
+  大小: 0.95\textwidth (figure*)
+  说明: 多视角综合展示
+
+================================================================================
+图片文件位置
+================================================================================
+
+所有图片已复制到:
+  /Users/guhaoyu/Desktop/数据挖掘/Data_Mining_Course_Design/latex/figures/
+
+使用的图片 (9张):
+  ✓ 1_clustering_scatter_spectral.png
+  ✓ 2_clustering_scatter_viridis.png
+  ✓ 4_cluster_size_distribution_bar.png
+  ✓ 5_cluster_size_histogram.png
+  ✓ 6_cluster_size_boxplot.png
+  ✓ 7_noise_distribution_pie.png
+  ✓ 8_noise_points_highlighted.png
+  ✓ 9_top20_largest_clusters.png
+  ✓ 10_comprehensive_dashboard.png
+
+未使用的图片 (1张):
+  - 3_clustering_scatter_tab20.png (可选的第三种配色)
+
+================================================================================
+章节结构
+================================================================================
+
+Section 5: Results
+  5.1 Clustering Results Summary (Table 1)
+  5.2 Clustering Quality Evaluation (Table 2)
+  5.3 Embedding Space Visualization (Figure 1)
+  5.4 Cluster Size Distribution (Figure 2 - 双图)
+  5.5 Noise Point Analysis (Figure 3)
+  5.6 Additional Clustering Visualizations (NEW - 4个小图)
+      - Figure 4: Viridis配色
+      - Figure 5: 箱线图
+      - Figure 6: 饼图
+      - Figure 7: Top 20
+  5.7 Comprehensive Dashboard (Figure 8)
+  5.8 Key Findings
+
+================================================================================
+编译提示
+================================================================================
+
+1. 所有图片使用相对路径: figures/xxx.png
+2. 大图使用 [t] 或 [h] 浮动位置
+3. 双图并排使用 figure* 环境
+4. 小图(0.45\textwidth)会自动排版
+5. 总共约12个图形对象(2个表格+10个图片引用)
+
+编译命令:
+  cd latex
+  pdflatex acl_latex.tex
+  bibtex acl_latex
+  pdflatex acl_latex.tex
+  pdflatex acl_latex.tex
+
+================================================================================

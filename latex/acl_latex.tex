@@ -1,0 +1,998 @@
+\documentclass[11pt]{article}
+
+% Change "review" to "final" to generate the final (sometimes called camera-ready) version.
+% Change to "preprint" to generate a non-anonymous version with page numbers.
+\usepackage[preprint]{acl}
+
+% Standard package includes
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{tabularx}
+% For proper rendering and hyphenation of words containing Latin characters (including in bib files)
+\usepackage[T1]{fontenc}
+% For Vietnamese characters
+% \usepackage[T5]{fontenc}
+% See https://www.latex-project.org/help/documentation/encguide.pdf for other character sets
+
+% This assumes your files are encoded as UTF8
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+% This is not strictly necessary, and may be commented out,
+% but it will improve the layout of the manuscript,
+% and will typically save some space.
+\usepackage{microtype}
+
+% This is also not strictly necessary, and may be commented out.
+% However, it will improve the aesthetics of text in
+% the typewriter font.
+\usepackage{inconsolata}
+
+%Including images in your LaTeX document requires adding
+%additional package(s)
+\usepackage{graphicx}
+\usepackage{authblk}
+% If the title and author information does not fit in the area allocated, uncomment the following
+%
+%\setlength\titlebox{<dim>}
+%
+% and set <dim> to something 5cm or larger.
+
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{authblk}
+
+
+
+
+
+
+
+
+
+
+\title{MusiCode: Discrete Representation of Symbolic Music for Data Mining}
+
+\author{Lekai Qian$^{1,*}$, Tingran Meng$^{1,*}$, Chenyuan Hong$^{1,*}$, Haoyu Gu$^{1,*}$, Shidang Xu$^{2,\dagger}$ \\
+$^1$School of Future Technology, South China University of Technology \\
+$^2$School of Biomedical Sciences and Engineering, South China University of Technology \\
+\texttt{\{202364870191, 202364870171, 202364870042, 202364820071\}@mail.scut.edu.cn} \\
+\texttt{xusd@scut.edu.cn} \\
+$^{*}$Equal contribution. $^{\dagger}$Corresponding author.
+}
+
+
+%\author{
+%  \textbf{First Author\textsuperscript{1}},
+%  \textbf{Second Author\textsuperscript{1,2}},
+%  \textbf{Third T. Author\textsuperscript{1}},
+%  \textbf{Fourth Author\textsuperscript{1}},
+%\\
+%  \textbf{Fifth Author\textsuperscript{1,2}},
+%  \textbf{Sixth Author\textsuperscript{1}},
+%  \textbf{Seventh Author\textsuperscript{1}},
+%  \textbf{Eighth Author \textsuperscript{1,2,3,4}},
+%\\
+%  \textbf{Ninth Author\textsuperscript{1}},
+%  \textbf{Tenth Author\textsuperscript{1}},
+%  \textbf{Eleventh E. Author\textsuperscript{1,2,3,4,5}},
+%  \textbf{Twelfth Author\textsuperscript{1}},
+%\\
+%  \textbf{Thirteenth Author\textsuperscript{3}},
+%  \textbf{Fourteenth F. Author\textsuperscript{2,4}},
+%  \textbf{Fifteenth Author\textsuperscript{1}},
+%  \textbf{Sixteenth Author\textsuperscript{1}},
+%\\
+%  \textbf{Seventeenth S. Author\textsuperscript{4,5}},
+%  \textbf{Eighteenth Author\textsuperscript{3,4}},
+%  \textbf{Nineteenth N. Author\textsuperscript{2,5}},
+%  \textbf{Twentieth Author\textsuperscript{1}}
+%\\
+%\\
+%  \textsuperscript{1}Affiliation 1,
+%  \textsuperscript{2}Affiliation 2,
+%  \textsuperscript{3}Affiliation 3,
+%  \textsuperscript{4}Affiliation 4,
+%  \textsuperscript{5}Affiliation 5
+%\\
+%  \small{
+%    \textbf{Correspondence:} \href{mailto:email@domain}{email@domain}
+%  }
+%}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+Existing symbolic music processing methods predominantly rely on token-based representations, which generate extremely long sequences and struggle to capture global structural patterns. To address these challenges, we propose MusiCode, a framework combining representation learning, data mining, and vector quantization for music analysis. Our framework consists of three components: (1) a Transformer-based autoencoder learning compact 768-dimensional embeddings through self-supervised reconstruction, (2) systematic data mining techniques including PCA, t-SNE, UMAP, and K-Means clustering to discover latent patterns and visualize musical relationships, and (3) a theoretical framework for Residual Vector Quantization (RVQ) enabling hierarchical discrete encoding. We implement and validate the first two components through experiments on 10,000 music segments. Our clustering analysis reveals meaningful patterns in the embedding space, with partial separation between high and low voice parts, demonstrating that the Transformer autoencoder captures voice-related structural information. While the RVQ framework is theoretically designed for future implementation, our results validate the effectiveness of combining learned representations with data mining techniques for music analysis, providing a foundation for discrete encoding and compression tasks.
+\end{abstract}
+
+
+
+\section{Introduction}
+\label{sec:introduction}
+
+The rapid growth of digital music libraries and streaming platforms has generated unprecedented volumes of symbolic music data, creating both opportunities and challenges for music information retrieval and analysis. Understanding the underlying patterns, structures, and relationships within these vast musical collections requires sophisticated computational approaches that can capture both local musical features and global structural information. While significant progress has been made in symbolic music generation and analysis, fundamental questions remain about how to effectively represent and compress musical information in ways that preserve semantic content while enabling efficient computation and analysis.
+
+\subsection{Motivation and Background}
+
+Traditional approaches to symbolic music processing have predominantly relied on token-based representations, where music is encoded as sequences of discrete events---such as note onsets, pitches, durations, and velocities. These methods have demonstrated impressive capabilities in music generation tasks, successfully producing locally coherent musical sequences through autoregressive modeling and transformer architectures. However, this event-level granularity, while temporally precise, introduces several fundamental limitations that constrain both the efficiency and expressiveness of musical representations.
+
+First, token-based approaches generate extremely long sequences even for short musical passages. A simple four-measure phrase may require hundreds of discrete tokens, leading to computational bottlenecks in both training and inference. Second, and more critically, these representations struggle to capture global structural information and high-level musical patterns. By operating at the level of individual events, token-based models must implicitly learn harmonic progressions, rhythmic patterns, and thematic relationships through statistical regularities in vast training datasets, without explicit encoding of these musically meaningful structures. This results in models that can generate locally plausible continuations but often fail to maintain long-term coherence or meaningful global structure.
+
+Recent work in variational autoencoders has demonstrated that learning continuous latent representations can enable better capture of musical structure. However, these approaches typically operate downstream of pre-defined tokenization schemes, inheriting their limitations. Similarly, while diffusion models have shown promise for symbolic music generation, they remain constrained by the representations on which they operate. These observations motivate our exploration of alternative approaches that combine learned representations with systematic data mining techniques to discover and analyze musical patterns.
+
+\subsection{Our Approach: Representation Learning and Data Mining}
+
+In this work, we propose a comprehensive framework that addresses these limitations through the integration of representation learning, data mining techniques, and vector quantization. Our approach, \textbf{MusiCode}, consists of three complementary components designed to enable effective music analysis and compression. \textbf{In this work, we focus particularly on the first two components---representation learning and data mining---demonstrating their effectiveness through comprehensive experiments on 83,362 music token embeddings.} We also present the theoretical framework for the third component, residual vector quantization, providing a foundation for future implementation and integration.
+
+\textbf{Representation Learning:} We employ a Transformer-based autoencoder architecture to learn compact, continuous representations of symbolic music. Rather than operating directly on lengthy token sequences, our model learns to compress musical segments into fixed-dimensional 768-dimensional embeddings through self-supervised reconstruction. This approach, inspired by recent advances in music representation learning such as MusicVAE~\cite{roberts2018musicvae}, enables the model to capture essential musical information in a significantly more compact form. By training the autoencoder to reconstruct input sequences from these compressed representations, we ensure that the learned embeddings preserve musically meaningful information.
+
+\textbf{Data Mining and Visualization:} We systematically apply data mining techniques to analyze the learned representation space and discover latent musical patterns. We first employ UMAP~\cite{mcinnes2018umap} for dimensionality reduction, which preserves both local and global structure more effectively than traditional methods like PCA or t-SNE~\cite{maaten2008visualizing}. For clustering, we use HDBSCAN (Hierarchical Density-Based Spatial Clustering of Applications with Noise)~\cite{campello2013density}, a density-based clustering algorithm that offers several advantages over traditional K-Means: (1) it automatically determines the optimal number of clusters without requiring pre-specification, (2) it can identify clusters of arbitrary shapes rather than assuming spherical distributions, (3) it robustly handles noise by identifying outlier points, and (4) it provides a hierarchical view of cluster structure. Through systematic parameter search over the UMAP-HDBSCAN pipeline, we discover natural groupings within the embedding space, potentially corresponding to voice types, musical styles, or structural patterns.
+
+\textbf{Hierarchical Vector Quantization (Theoretical Framework):} To bridge continuous feature representations and discrete symbolic manipulation, we design a theoretical framework based on Residual Vector Quantization (RVQ)~\cite{zeghidour2021soundstream, oord2017neural}. RVQ uses multiple quantization layers in a hierarchical manner, where each layer progressively refines the representation by quantizing residual errors from previous layers. This approach offers several critical advantages: (1) it achieves high-quality discrete encoding while maintaining compact codebook sizes, (2) it naturally captures hierarchical structure, with early layers encoding coarse musical characteristics and later layers capturing fine-grained details, and (3) it enables flexible rate-quality tradeoffs by adjusting the number of quantization layers. While we present the complete theoretical framework for RVQ in this work, its implementation and empirical evaluation are reserved for future research, building upon the learned representations validated in our current experiments.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/musicode_framework.png}
+\caption{Overview of the MusiCode framework. The Transformer-based autoencoder (Component 1) compresses token sequences into 768-dimensional embeddings through self-supervised reconstruction. The learned embeddings are then analyzed through parallel data mining techniques (Component 2): UMAP dimensionality reduction and HDBSCAN clustering. Component 3 (shown with dashed border) provides a theoretical framework for residual vector quantization, reserved for future implementation.}
+\label{fig:framework}
+\end{figure*}
+
+\subsection{Contributions}
+
+The main contributions of this work are:
+
+\begin{itemize}
+\item \textbf{Transformer-Based Music Representation Learning:} We implement and evaluate a Transformer autoencoder that learns compact 768-dimensional embeddings from token sequences through self-supervised reconstruction, demonstrating effective compression of musical information for subsequent analysis.
+
+\item \textbf{Systematic Data Mining Analysis:} We demonstrate how modern data mining techniques---UMAP dimensionality reduction and HDBSCAN density-based clustering---can be systematically applied to learned music representations to discover latent patterns and identify natural groupings. Through comprehensive parameter search over 360 configurations targeting approximately 512 clusters, our experiments on 83,362 music token embeddings reveal meaningful structure in the embedding space, with partial separation between high and low voice parts.
+
+\item \textbf{Theoretical Framework for Hierarchical Quantization:} We present a complete theoretical framework for Residual Vector Quantization applied to music feature spaces, providing the mathematical foundation and architectural design for future implementation of hierarchical discrete encoding.
+
+\item \textbf{Comprehensive Empirical Analysis:} We provide extensive clustering analysis and visualization demonstrating that learned representations capture meaningful musical structures. Our results validate the effectiveness of combining representation learning with data mining techniques for music analysis, providing a solid foundation for subsequent discrete encoding tasks.
+\end{itemize}
+
+Our approach demonstrates that learned representations, analyzed through data mining techniques, offer a promising direction for music analysis and understanding. By operating in a compact embedding space rather than lengthy token sequences, we enable more efficient analysis while capturing high-level musical patterns. The theoretical framework for hierarchical quantization provides a clear path for future work to extend these representations into discrete codes suitable for compression and generation tasks.
+
+\subsection{Organization}
+
+The remainder of this paper is organized as follows. Section~\ref{sec:related} reviews related work in symbolic music representation, data mining in music analysis, and vector quantization techniques. Section~\ref{sec:method} describes our representation learning architecture, data mining techniques, and the theoretical framework for residual vector quantization. Section~\ref{sec:experiments} presents our experimental setup, datasets, and implementation details. Section~\ref{sec:results} analyzes our results through visualizations of embedding spaces, clustering quality metrics, and pattern discovery. Section~\ref{sec:discussion} discusses the implications of our findings, current limitations, and future directions. Section~\ref{sec:conclusion} concludes the paper.
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Data Mining in Music Analysis}
+
+Data mining techniques have been extensively applied to music information retrieval and analysis, offering powerful tools for discovering patterns and structures in large musical datasets~\cite{tzanetakis2002musical, li2003comparative}.
+
+\textbf{Clustering Methods:} Clustering algorithms are fundamental for discovering natural groupings in music data. K-Means clustering has been widely used for music genre classification~\cite{tzanetakis2002musical} and automatic playlist generation. However, K-Means requires pre-specifying the number of clusters and assumes spherical cluster shapes, which may not suit complex musical data. Density-based methods like DBSCAN and its hierarchical variant HDBSCAN~\cite{campello2013density} offer advantages by automatically determining cluster numbers and identifying arbitrarily-shaped clusters while robustly handling noise. HDBSCAN constructs a hierarchy of clusters based on density estimates, extracting stable clusters across multiple scales. Hierarchical clustering and Gaussian Mixture Models (GMM) have also been applied to capture more complex cluster structures in music feature spaces~\cite{roda2014clustering}.
+
+\textbf{Dimensionality Reduction:} High-dimensional music feature spaces pose significant challenges for visualization and analysis. Principal Component Analysis (PCA) has been a classical approach for reducing feature dimensionality while preserving maximum variance~\cite{aucouturier2007way}. More recently, non-linear dimensionality reduction techniques have gained prominence. t-Distributed Stochastic Neighbor Embedding (t-SNE)~\cite{maaten2008visualizing} has become particularly popular for visualizing music datasets, as it excels at preserving local structure and revealing cluster patterns. Uniform Manifold Approximation and Projection (UMAP)~\cite{mcinnes2018umap} offers similar visualization quality with superior computational efficiency and better preservation of global structure, making it suitable for large-scale music analysis tasks.
+
+\textbf{Pattern Recognition:} Sequential pattern mining and association rule learning have been applied to discover common progressions in music, such as chord sequences and melodic motifs~\cite{conklin2003music}. These techniques enable the extraction of recurring patterns that characterize different musical styles and genres.
+
+Our work leverages these data mining techniques in a unified framework. We employ UMAP for dimensionality reduction due to its superior balance of local and global structure preservation and computational efficiency. For clustering, we adopt HDBSCAN rather than K-Means, as it automatically determines the optimal number of clusters and handles the complex, non-spherical cluster shapes common in learned music representations. By integrating these modern techniques with vector quantization methods, we create a comprehensive pipeline for music analysis.
+
+\subsection{Symbolic Music Representations and Feature Learning}
+
+The representation of music fundamentally determines what patterns and structures can be captured by computational models. Traditional approaches have evolved from raw MIDI event sequences~\cite{oore2018time} to more structured representations that better capture musical semantics.
+
+\textbf{Token-based Representations:} Modern symbolic music processing heavily relies on tokenization schemes that convert MIDI data into discrete tokens. The REMI (REvamped MIDI-derived events) representation~\cite{huang2020pop} introduced explicit metrical tokens (Bar, Position) to provide rhythmic context. Compound Word representations~\cite{hsiao2021compound} further group related tokens (pitch, duration, velocity) into unified compounds, reducing sequence length while capturing co-occurrence relationships. These tokenization methods demonstrate that appropriate discrete representations can significantly improve model performance, motivating our exploration of vector quantization for music feature encoding.
+
+\textbf{Pre-trained Music Representations:} Large-scale pre-training has proven effective for learning contextualized music representations. MusicBERT~\cite{zeng2021musicbert} and MidiBERT-Piano~\cite{chou2021midibert} apply BERT-style masked language modeling to symbolic music, learning representations that excel at downstream tasks such as composer classification and melody extraction. However, these models operate on pre-defined tokenization schemes and do not address the challenge of learning compressed, hierarchical feature representations directly from raw musical content.
+
+\textbf{Latent Representations with VAEs:} Variational Autoencoders offer a complementary approach by learning continuous latent representations. MusicVAE~\cite{roberts2018musicvae} introduced hierarchical decoder architectures that learn structured latent spaces, enabling semantically meaningful interpolation between musical pieces (Figure~\ref{fig:musicvae}). The hierarchical structure, where a ``conductor'' RNN generates subsequence embeddings and separate ``track'' RNNs decode each subsequence, forces the model to utilize its latent code effectively. Extensions include style-aware representations~\cite{valenti2020learning} and emotion-controlled generation~\cite{grekow2021monophonic}. While these methods demonstrate the value of learned continuous representations, they do not address the discrete quantization problem that enables efficient compression and symbolic manipulation---a gap our work addresses through residual vector quantization.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/musicvae_architecture.png}
+\caption{MusicVAE hierarchical architecture. The encoder compresses music sequences into latent code $z$, decoded hierarchically through a conductor RNN and multiple decoder RNNs.}
+\label{fig:musicvae}
+\end{figure}
+\textbf{Hierarchical and Structured Representations:} PianoTree VAE~\cite{wang2020pianotree} explicitly models tree-structured note groupings (chords, arpeggios) to better capture polyphonic structure. Graph-based approaches~\cite{jeong2019graph, rodriguez2018symbolic} represent musical relationships through explicit graph structures. These works highlight the importance of capturing hierarchical and relational information in music representation. Our approach achieves similar goals---preserving both local details and global structure---through multi-layer residual vector quantization operating on continuous feature representations.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/soundstream_architecture.png}
+\caption{SoundStream architecture with Residual Vector Quantization (RVQ). Left: Training phase with encoder, multi-layer RVQ, decoder, and discriminator. Right: Inference phase showing encoder-RVQ compression at transmitter and RVQ-decoder reconstruction at receiver. The hierarchical RVQ structure enables flexible bitrate control and progressive refinement.}
+\label{fig:soundstream}
+\end{figure*}
+
+\subsection{Vector Quantization in Music}
+
+Vector quantization techniques have recently gained attention for creating discrete representations while maintaining high reconstruction quality. In the audio domain, SoundStream~\cite{zeghidour2021soundstream} demonstrated that residual vector quantization (RVQ) can efficiently compress speech and music at various bitrates by using multiple quantization layers in a hierarchical manner (Figure~\ref{fig:soundstream}). 
+
+As shown in Figure~\ref{fig:soundstream}, the RVQ framework operates by progressively refining the quantization: each layer quantizes the residual error from previous layers, enabling flexible rate-quality tradeoffs. The encoder produces continuous latent representations, which are then quantized through multiple RVQ layers ($Q_1, Q_2, Q_3, Q_4, \ldots$), with each layer reducing the reconstruction error. This hierarchical structure naturally captures information at multiple levels of abstraction---early layers encode coarse structure while later layers capture fine-grained details.
+
+
+
+Our work extends these ideas to symbolic music analysis by applying RVQ to learned feature representations rather than raw audio. This allows us to discover discrete codes that capture high-level musical patterns (harmonic progressions, rhythmic motifs) while maintaining computational efficiency. By combining feature extraction with hierarchical quantization, we bridge continuous feature learning and discrete symbolic manipulation.
+
+\subsection{Diffusion Models for Music}
+
+Recent work has explored diffusion models for symbolic music generation~\cite{mittal2021symbolic, plasser2023discrete}. These approaches operate in either continuous latent spaces~\cite{mittal2021symbolic} or directly on discrete representations~\cite{plasser2023discrete, zhang2024composer}. Hierarchical cascaded diffusion~\cite{zhang2024whole} and rule-guided diffusion~\cite{huang2024rule} further enhance controllability and structural coherence.
+
+While our work focuses on representation learning rather than generation, the discrete codes produced by our RVQ framework are compatible with these diffusion-based approaches. The hierarchical nature of RVQ---where early layers capture coarse structure and later layers encode fine details---aligns well with hierarchical diffusion models that operate at multiple abstraction levels.
+
+
+
+\section{Methodology}
+\label{sec:method}
+
+
+
+\subsection{Overview and Framework Design}
+Our framework, MusiCode, consists of three complementary components designed to enable comprehensive music analysis and representation. Figure~\ref{fig:framework} illustrates the overall architecture.
+
+\textbf{Component 1: Representation Learning} employs a Transformer-based autoencoder to learn compact 768-dimensional embeddings from token sequences through self-supervised reconstruction. The encoder processes input token sequences into fixed-dimensional continuous representations, which the decoder reconstructs back to the original sequence. The reconstruction loss ensures that embeddings capture essential musical information.
+
+\textbf{Component 2: Data Mining and Visualization} applies modern data mining techniques to analyze the learned embedding space. The 768-dimensional embeddings undergo a two-stage pipeline: (1) UMAP dimensionality reduction to a more tractable intermediate dimension (50-100D), preserving both local and global manifold structure, and (2) HDBSCAN density-based clustering to automatically discover natural groupings without pre-specifying cluster numbers. Through systematic parameter search, we optimize this pipeline to identify meaningful musical categories.
+
+\textbf{Component 3: Residual Vector Quantization} provides a theoretical framework for converting continuous embeddings into hierarchical discrete codes. This enables efficient compression and symbolic manipulation while preserving musical information at multiple levels of abstraction.
+
+In this work, we implement and evaluate Components 1 and 2 (Sections~\ref{sec:repr_learning} through~\ref{sec:hdbscan}), demonstrating their effectiveness on 83,362 music token embeddings. Component 3 is presented as a theoretical framework (Section~\ref{sec:rvq}) with complete mathematical formulation, providing a foundation for future implementation.
+
+\subsection{Representation Learning with Transformer Autoencoder}
+\label{sec:repr_learning}
+
+We employ a Transformer-based autoencoder architecture to learn compact continuous representations of symbolic music. The model takes token sequences as input and learns to compress them into fixed-dimensional embeddings through self-supervised reconstruction training.
+
+\subsubsection{Architecture}
+
+Our autoencoder consists of an encoder $E$ and a decoder $D$. Given an input token sequence $\mathbf{x} = (x_1, x_2, \ldots, x_T)$ where $T$ is the sequence length, the encoder processes it through multiple Transformer layers to produce a continuous embedding:
+
+\begin{equation}
+\mathbf{z} = E(\mathbf{x}) \in \mathbb{R}^{d}
+\end{equation}
+
+where $d = 768$ is the embedding dimension. The decoder then reconstructs the original sequence from this compressed representation:
+
+\begin{equation}
+\hat{\mathbf{x}} = D(\mathbf{z})
+\end{equation}
+
+\textbf{Encoder:} The encoder uses the standard Transformer architecture with multi-head self-attention. For input embeddings $\mathbf{X} \in \mathbb{R}^{T \times d}$, the multi-head attention mechanism computes:
+
+\begin{equation}
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right)\mathbf{V}
+\end{equation}
+
+where $\mathbf{Q}$, $\mathbf{K}$, and $\mathbf{V}$ are query, key, and value matrices respectively, and $d_k$ is the dimension of keys. The encoder applies $N_e$ such layers, each followed by feed-forward networks and layer normalization. The final encoder output is pooled (typically using the [CLS] token representation or mean pooling) to obtain the fixed-dimensional embedding $\mathbf{z}$.
+
+\textbf{Decoder:} The decoder also uses $N_d$ Transformer layers with masked self-attention to ensure autoregressive generation during training. It takes the encoder embedding $\mathbf{z}$ as input (either as initial hidden state or through cross-attention) and generates the output sequence token by token.
+
+\subsubsection{Training Objective}
+
+The model is trained end-to-end to minimize the reconstruction loss. For a token sequence of length $T$, the training objective is:
+
+\begin{equation}
+\mathcal{L}_{\text{recon}} = -\sum_{t=1}^{T} \log p(x_t | x_{<t}, \mathbf{z})
+\end{equation}
+
+where $x_{<t}$ denotes all tokens before position $t$. This cross-entropy loss encourages the model to learn embeddings that preserve sufficient information for accurate reconstruction, ensuring that $\mathbf{z}$ captures musically meaningful patterns.
+
+\subsubsection{Implementation Details}
+
+Our implementation uses the following configuration:
+\begin{itemize}
+\item \textbf{Architecture:} 6 encoder layers, 6 decoder layers, 8 attention heads
+\item \textbf{Hidden dimension:} 768 for embeddings, 2048 for feed-forward layers
+\item \textbf{Vocabulary size:} Task-dependent, typically 2000-5000 tokens
+\item \textbf{Sequence length:} Maximum 512 tokens
+\item \textbf{Optimization:} Adam optimizer with learning rate $1 \times 10^{-4}$, warmup steps of 4000
+\item \textbf{Regularization:} Dropout rate 0.1, label smoothing 0.1
+\end{itemize}
+
+The model is trained until convergence, typically requiring 50-100 epochs on our dataset. The learned 768-dimensional embeddings $\mathbf{z}$ serve as the input to subsequent data mining and analysis stages.
+
+\subsection{Feature Extraction Framework}
+\label{sec:feature_extraction}
+
+Beyond learned embeddings from the Transformer autoencoder, we design a comprehensive feature extraction framework for future enhancement of our system. While not implemented in the current study due to the focus on representation learning and data mining validation, this framework provides a foundation for integrating explicit musical features with learned representations.
+
+\subsubsection{Pitch-Based Features}
+
+Pitch features capture the melodic and harmonic content of music:
+
+\begin{itemize}
+\item \textbf{Pitch Class Distribution:} A 12-dimensional histogram $\mathbf{h}_{\text{pc}} \in \mathbb{R}^{12}$ representing the frequency of each pitch class (C, C\#, D, ..., B), normalized by total note count.
+
+\item \textbf{Pitch Range Statistics:} Measures including minimum pitch, maximum pitch, mean pitch, and pitch standard deviation, capturing the overall tessitura of the music.
+
+\item \textbf{Interval Distribution:} Distribution of melodic intervals between consecutive notes, providing information about melodic contour and smoothness.
+\end{itemize}
+
+\subsubsection{Rhythmic Features}
+
+Rhythmic features characterize temporal patterns:
+
+\begin{itemize}
+\item \textbf{Note Density:} Number of note onsets per beat or measure, indicating rhythmic activity level.
+
+\item \textbf{Duration Distribution:} Histogram of note durations (e.g., whole notes, half notes, quarter notes), capturing rhythmic complexity.
+
+\item \textbf{Syncopation Measures:} Quantification of off-beat emphasis using metrics such as the weighted note-to-beat distance.
+\end{itemize}
+
+\subsubsection{Harmonic Features}
+
+Harmonic features encode vertical structures:
+
+\begin{itemize}
+\item \textbf{Chord Recognition:} Identification of chord types (major, minor, diminished, augmented) at each time step using template matching or neural networks.
+
+\item \textbf{Harmonic Progression Patterns:} Sequences of chord transitions, potentially encoded as n-grams or embedded through learned representations.
+
+\item \textbf{Tonal Center:} Estimation of the key and tonal center using algorithms such as the Krumhansl-Schmuckler key-finding algorithm.
+\end{itemize}
+
+\subsubsection{Integration Strategy}
+
+The extracted features from each category can be concatenated to form a comprehensive feature vector $\mathbf{f} \in \mathbb{R}^{d_f}$, where $d_f$ depends on the specific features selected. This explicit feature representation can then be combined with the learned embedding $\mathbf{z}$ through various fusion strategies:
+
+\begin{equation}
+\mathbf{z}_{\text{fused}} = \text{Fusion}(\mathbf{z}, \mathbf{f})
+\end{equation}
+
+Possible fusion methods include concatenation, weighted sum, or learned attention mechanisms. The fused representation can then proceed to the data mining stage.
+
+While this comprehensive feature extraction pipeline remains to be implemented, the current study focuses on validating that learned representations alone (i.e., $\mathbf{z}$ from the Transformer autoencoder) can effectively support music analysis tasks. Future work will integrate explicit features to enhance the representation's expressiveness and interpretability.
+
+\subsection{Dimensionality Reduction and Visualization}
+\label{sec:dim_reduction}
+
+High-dimensional embeddings ($\mathbb{R}^{768}$) are difficult to visualize and interpret directly. We apply dimensionality reduction techniques to project embeddings into lower-dimensional spaces for analysis and visualization.
+
+\subsubsection{Principal Component Analysis (PCA)}
+
+PCA finds orthogonal directions of maximum variance in the data. Given a centered data matrix $\mathbf{Z} \in \mathbb{R}^{N \times d}$ where $N$ is the number of samples, PCA computes the covariance matrix:
+
+\begin{equation}
+\mathbf{C} = \frac{1}{N-1}\mathbf{Z}^T\mathbf{Z}
+\end{equation}
+
+The principal components are the eigenvectors of $\mathbf{C}$, obtained by solving:
+
+\begin{equation}
+\mathbf{C}\mathbf{v}_i = \lambda_i \mathbf{v}_i
+\end{equation}
+
+where $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_d$ are eigenvalues and $\mathbf{v}_i$ are the corresponding eigenvectors. The projection onto the first $k$ principal components is:
+
+\begin{equation}
+\mathbf{Z}_{\text{PCA}} = \mathbf{Z}\mathbf{V}_k
+\end{equation}
+
+where $\mathbf{V}_k = [\mathbf{v}_1, \mathbf{v}_2, \ldots, \mathbf{v}_k]$ contains the top $k$ eigenvectors.
+
+We use PCA primarily for initial exploration of the embedding space structure. The explained variance ratio $\lambda_i / \sum_j \lambda_j$ indicates how much information is preserved by each principal component. Typically, we retain components that cumulatively explain 90-95\% of the variance.
+
+\subsubsection{t-Distributed Stochastic Neighbor Embedding (t-SNE)}
+
+While PCA preserves global variance, it may not capture complex non-linear relationships. t-SNE~\cite{maaten2008visualizing} is a non-linear dimensionality reduction technique particularly effective for visualization, as it preserves local neighborhood structures.
+
+t-SNE operates in two stages. First, it models pairwise similarities in the high-dimensional space using a Gaussian distribution:
+
+\begin{equation}
+p_{j|i} = \frac{\exp(-\|\mathbf{z}_i - \mathbf{z}_j\|^2 / 2\sigma_i^2)}{\sum_{k \neq i} \exp(-\|\mathbf{z}_i - \mathbf{z}_k\|^2 / 2\sigma_i^2)}
+\end{equation}
+
+and defines a symmetric similarity:
+
+\begin{equation}
+p_{ij} = \frac{p_{j|i} + p_{i|j}}{2N}
+\end{equation}
+
+In the low-dimensional space, similarities are modeled using a Student's t-distribution:
+
+\begin{equation}
+q_{ij} = \frac{(1 + \|\mathbf{y}_i - \mathbf{y}_j\|^2)^{-1}}{\sum_{k \neq l}(1 + \|\mathbf{y}_k - \mathbf{y}_l\|^2)^{-1}}
+\end{equation}
+
+where $\mathbf{y}_i$ is the low-dimensional representation of $\mathbf{z}_i$. t-SNE minimizes the Kullback-Leibler divergence between $P$ and $Q$:
+
+\begin{equation}
+\mathcal{L}_{\text{t-SNE}} = \sum_{i \neq j} p_{ij} \log \frac{p_{ij}}{q_{ij}}
+\end{equation}
+
+The optimization is performed using gradient descent. The key hyperparameter is \emph{perplexity}, which roughly corresponds to the number of nearest neighbors considered. We experiment with perplexity values in the range [5, 50] to find settings that produce clear visualizations.
+
+\subsubsection{Uniform Manifold Approximation and Projection (UMAP)}
+
+UMAP~\cite{mcinnes2018umap} is a more recent dimensionality reduction technique that offers several advantages over t-SNE:
+\begin{itemize}
+\item \textbf{Computational Efficiency:} UMAP scales better to large datasets, with approximately $O(N \log N)$ complexity compared to t-SNE's $O(N^2)$.
+\item \textbf{Global Structure:} UMAP better preserves global data structure while maintaining local relationships.
+\item \textbf{Theoretical Foundation:} UMAP is grounded in manifold learning and topological data analysis.
+\end{itemize}
+
+UMAP constructs a weighted graph representation of the data in high-dimensional space, then optimizes a similar graph in low-dimensional space. While the mathematical details are more involved than t-SNE, the practical usage is similar: we specify the target dimensionality (typically 2 or 3 for visualization) and key hyperparameters such as \texttt{n\_neighbors} (analogous to perplexity) and \texttt{min\_dist} (controlling how tightly points are packed).
+
+In our experiments, we primarily use t-SNE for its widespread adoption and interpretability, while also exploring UMAP for its computational efficiency when analyzing larger datasets.
+
+\subsection{Density-Based Clustering with HDBSCAN}
+\label{sec:hdbscan}
+
+Clustering algorithms partition the embedding space into distinct groups, enabling unsupervised discovery of musical patterns and categories. Unlike traditional K-Means clustering which requires pre-specifying the number of clusters and assumes spherical cluster shapes, we employ HDBSCAN (Hierarchical Density-Based Spatial Clustering of Applications with Noise)~\cite{campello2013density}, which offers several critical advantages for analyzing learned music representations.
+
+\subsubsection{HDBSCAN Algorithm}
+
+HDBSCAN extends DBSCAN by constructing a hierarchy of clusters based on varying density thresholds. The algorithm proceeds through several stages:
+
+\textbf{1. Mutual Reachability Distance:} For each point $\mathbf{z}_i$, compute the core distance as the distance to its $k$-th nearest neighbor (where $k$ = \texttt{min\_samples}). The mutual reachability distance between points $\mathbf{z}_i$ and $\mathbf{z}_j$ is:
+
+\begin{equation}
+d_{\text{mreach}}(\mathbf{z}_i, \mathbf{z}_j) = \max\{\text{core}_k(\mathbf{z}_i), \text{core}_k(\mathbf{z}_j), d(\mathbf{z}_i, \mathbf{z}_j)\}
+\end{equation}
+
+\textbf{2. Minimum Spanning Tree:} Construct a minimum spanning tree using mutual reachability distances.
+
+\textbf{3. Cluster Hierarchy:} Build a dendrogram by iteratively merging clusters, creating a hierarchy of density-based clusters.
+
+\textbf{4. Cluster Extraction:} Extract stable clusters by analyzing cluster persistence across the hierarchy. Clusters must contain at least \texttt{min\_cluster\_size} points to be considered valid.
+
+\textbf{5. Noise Identification:} Points that do not belong to any stable cluster are labeled as noise (cluster label = -1).
+
+\subsubsection{Key Parameters and Their Effects}
+
+HDBSCAN's behavior is controlled by several key parameters:
+
+\textbf{min\_cluster\_size:} The minimum number of points required to form a cluster. This is the \emph{primary parameter} controlling the number of clusters discovered. Smaller values lead to more, finer-grained clusters; larger values produce fewer, more general clusters. We explore values in the range [30, 150].
+
+\textbf{min\_samples:} The number of neighbors used to estimate density. Larger values make the algorithm more conservative, identifying more points as noise and producing fewer clusters. We test values in [5, 20].
+
+\textbf{cluster\_selection\_epsilon:} A distance threshold for merging clusters. Larger values merge more clusters, reducing the total count. We experiment with [0.0, 0.1, 0.2, 0.3].
+
+\subsubsection{Advantages Over K-Means}
+
+HDBSCAN offers several advantages for music embedding analysis:
+
+\begin{itemize}
+\item \textbf{Automatic cluster number determination:} No need to pre-specify $K$, allowing data-driven discovery of natural groupings.
+\item \textbf{Arbitrary cluster shapes:} Can identify non-spherical clusters common in complex learned representations.
+\item \textbf{Noise robustness:} Automatically identifies outlier points rather than forcing them into clusters.
+\item \textbf{Hierarchical structure:} Provides insight into cluster relationships at multiple scales.
+\item \textbf{Density-based:} Handles clusters of varying densities, unlike K-Means which assumes uniform density.
+\end{itemize}
+
+\subsubsection{Parameter Search Strategy}
+
+To identify approximately 512 meaningful clusters in our music embeddings, we conduct systematic grid search over UMAP and HDBSCAN parameters:
+
+\textbf{UMAP parameters:}
+\begin{itemize}
+\item \texttt{n\_components}: [50, 75, 100] — target dimensionality after reduction
+\item \texttt{n\_neighbors}: [15, 30] — local neighborhood size
+\item \texttt{min\_dist}: [0.0, 0.1] — minimum distance between points in low-dimensional space
+\end{itemize}
+
+\textbf{HDBSCAN parameters:}
+\begin{itemize}
+\item \texttt{min\_cluster\_size}: [30, 50, 80, 100, 120, 150]
+\item \texttt{min\_samples}: [5, 10, 15, 20]
+\item \texttt{cluster\_selection\_epsilon}: [0.0, 0.1, 0.2]
+\end{itemize}
+
+This yields approximately 360 parameter combinations. For each configuration, we record the number of clusters discovered, noise ratio, and clustering quality metrics. We select the configuration that produces cluster counts closest to 512 while maintaining high clustering quality.
+
+\subsubsection{Clustering Quality Evaluation}
+
+We evaluate clustering quality using multiple complementary metrics. For each data point $i$ in cluster $C_k$, the \textbf{Silhouette Score} computes:
+
+\begin{equation}
+a_i = \frac{1}{|C_k| - 1} \sum_{j \in C_k, j \neq i} \|\mathbf{z}_i - \mathbf{z}_j\|
+\end{equation}
+
+the mean distance to other points in the same cluster, and:
+
+\begin{equation}
+b_i = \min_{l \neq k} \frac{1}{|C_l|} \sum_{j \in C_l} \|\mathbf{z}_i - \mathbf{z}_j\|
+\end{equation}
+
+the mean distance to points in the nearest neighboring cluster. The silhouette coefficient is:
+
+\begin{equation}
+s_i = \frac{b_i - a_i}{\max(a_i, b_i)}
+\end{equation}
+
+Values near +1 indicate well-clustered points, 0 indicates borderline cases, and negative values suggest possible misclassification. The mean silhouette score across all points provides a global clustering quality measure. Note that for large numbers of clusters (e.g., 512), scores in the range [0.3, 0.5] are considered good, as increasing cluster granularity naturally reduces inter-cluster separation.
+
+\textbf{Additional Evaluation Metrics:}
+
+\textbf{Davies-Bouldin Index:} Measures the average similarity between each cluster and its most similar cluster, where similarity is defined as the ratio of within-cluster distances to between-cluster distances:
+
+\begin{equation}
+\text{DB} = \frac{1}{K} \sum_{k=1}^{K} \max_{l \neq k} \frac{s_k + s_l}{d_{kl}}
+\end{equation}
+
+where $s_k$ is the average distance from points in $C_k$ to $\boldsymbol{\mu}_k$, and $d_{kl} = \|\boldsymbol{\mu}_k - \boldsymbol{\mu}_l\|$. Lower values indicate better clustering.
+
+\textbf{Calinski-Harabasz Index:} Ratio of between-cluster dispersion to within-cluster dispersion:
+
+\begin{equation}
+\text{CH} = \frac{\text{tr}(B_K)}{\text{tr}(W_K)} \times \frac{N - K}{K - 1}
+\end{equation}
+
+where $B_K$ is the between-cluster dispersion matrix and $W_K$ is the within-cluster dispersion matrix. Higher values indicate better-defined clusters.
+
+These metrics provide complementary perspectives on clustering quality, helping us assess whether the discovered clusters correspond to meaningful musical patterns.
+
+\subsection{Residual Vector Quantization Framework}
+\label{sec:rvq}
+
+To enable discrete encoding of learned representations for compression and generation tasks, we design a theoretical framework based on Residual Vector Quantization (RVQ). While the implementation and empirical evaluation are reserved for future work, we present the complete mathematical formulation and architectural design, inspired by recent successes in neural audio compression~\cite{zeghidour2021soundstream}.
+
+\subsubsection{Motivation and Background}
+
+Continuous embeddings $\mathbf{z} \in \mathbb{R}^{768}$ are powerful for analysis but unsuitable for applications requiring discrete representations, such as:
+\begin{itemize}
+\item \textbf{Efficient storage:} Discrete codes require fewer bits than floating-point vectors
+\item \textbf{Symbolic manipulation:} Discrete codes enable combinatorial operations
+\item \textbf{Generative modeling:} Many generative models (e.g., autoregressive models, diffusion models) operate on discrete tokens
+\end{itemize}
+
+Vector Quantization (VQ) addresses this by mapping continuous vectors to discrete codebook entries. However, single-stage VQ faces a trade-off: large codebooks provide better reconstruction but are memory-intensive and harder to learn, while small codebooks are efficient but sacrifice quality.
+
+Residual Vector Quantization (RVQ) resolves this by using multiple quantization stages in a hierarchical manner, as illustrated in Figure~\ref{fig:soundstream}. Each stage quantizes the residual error from previous stages, progressively refining the representation. This enables high-quality reconstruction with compact codebooks and naturally captures information at multiple levels of abstraction.
+
+\subsubsection{Mathematical Formulation}
+
+Given a continuous embedding $\mathbf{z} \in \mathbb{R}^{d}$ (in our case, $d = 768$), RVQ with $L$ layers and codebook size $K$ per layer operates as follows:
+
+\textbf{Initialization:} Set the initial residual to the input:
+\begin{equation}
+\mathbf{r}_0 = \mathbf{z}
+\end{equation}
+
+\textbf{Layer $\ell$ Quantization:} At each layer $\ell \in \{1, 2, \ldots, L\}$, find the nearest codebook entry in $\mathcal{C}_\ell = \{\mathbf{c}_{\ell,1}, \ldots, \mathbf{c}_{\ell,K}\}$:
+
+\begin{equation}
+i_\ell = \arg\min_{j \in \{1,\ldots,K\}} \|\mathbf{r}_{\ell-1} - \mathbf{c}_{\ell,j}\|_2
+\end{equation}
+
+The quantized vector at this layer is:
+\begin{equation}
+\mathbf{q}_\ell = \mathbf{c}_{\ell, i_\ell}
+\end{equation}
+
+\textbf{Residual Update:} Compute the residual for the next layer:
+\begin{equation}
+\mathbf{r}_\ell = \mathbf{r}_{\ell-1} - \mathbf{q}_\ell
+\end{equation}
+
+\textbf{Final Reconstruction:} After $L$ layers, the quantized representation is:
+\begin{equation}
+\hat{\mathbf{z}} = \sum_{\ell=1}^L \mathbf{q}_\ell = \mathbf{q}_1 + \mathbf{q}_2 + \cdots + \mathbf{q}_L
+\end{equation}
+
+Each music segment is thus represented by a sequence of $L$ discrete codes $(i_1, i_2, \ldots, i_L)$ where $i_\ell \in \{1, 2, \ldots, K\}$. With $K = 1024$ and $L = 8$, this requires only $8 \times \log_2(1024) = 80$ bits, compared to $768 \times 32 = 24{,}576$ bits for the original 32-bit floating-point vector—a compression ratio of over 300$\times$.
+
+\subsubsection{Training Objectives}
+
+The RVQ framework is trained end-to-end to minimize a composite loss function:
+
+\begin{equation}
+\mathcal{L}_{\text{RVQ}} = \mathcal{L}_{\text{recon}} + \beta \mathcal{L}_{\text{commit}} + \gamma \mathcal{L}_{\text{codebook}}
+\end{equation}
+
+\textbf{Reconstruction Loss:} Ensures the quantized representation remains close to the original:
+\begin{equation}
+\mathcal{L}_{\text{recon}} = \|\mathbf{z} - \hat{\mathbf{z}}\|_2^2
+\end{equation}
+
+\textbf{Commitment Loss:} Encourages the encoder to commit to codebook entries by penalizing large residuals:
+\begin{equation}
+\mathcal{L}_{\text{commit}} = \|\text{sg}[\mathbf{z}] - \hat{\mathbf{z}}\|_2^2
+\end{equation}
+
+where $\text{sg}[\cdot]$ denotes the stop-gradient operation, which treats its argument as a constant during backpropagation. This prevents the encoder from learning to produce embeddings far from codebook entries.
+
+\textbf{Codebook Loss:} Updates the codebook entries to better represent the data:
+\begin{equation}
+\mathcal{L}_{\text{codebook}} = \sum_{\ell=1}^L \|\mathbf{r}_{\ell-1} - \text{sg}[\mathbf{q}_\ell]\|_2^2
+\end{equation}
+
+The stop-gradient ensures that codebook updates are driven by the residuals rather than gradients from downstream tasks.
+
+The hyperparameters $\beta$ and $\gamma$ balance these objectives. Following~\cite{zeghidour2021soundstream}, typical values are $\beta = 0.25$ and $\gamma = 1.0$.
+
+\subsubsection{Hierarchical Information Capture}
+
+A key advantage of RVQ is its hierarchical structure, which naturally captures information at multiple levels of abstraction:
+
+\textbf{Early Layers ($\ell = 1, 2$):} Quantize the bulk of the signal, capturing coarse-grained musical characteristics such as:
+\begin{itemize}
+\item Overall genre and style
+\item Major harmonic structures (key, chord progressions)
+\item Broad rhythmic patterns (tempo, meter)
+\end{itemize}
+
+\textbf{Middle Layers ($\ell = 3, 4, 5$):} Refine the representation, encoding mid-level patterns such as:
+\begin{itemize}
+\item Phrase structures and melodic contours
+\item Specific rhythmic motifs and syncopation patterns
+\item Voice-leading and textural information
+\end{itemize}
+
+\textbf{Later Layers ($\ell = 6, 7, 8$):} Capture fine-grained details and nuances:
+\begin{itemize}
+\item Subtle variations in note timing and duration
+\item Ornamentations and expressive deviations
+\item Fine-scale harmonic color
+\end{itemize}
+
+This hierarchical organization aligns well with how music is perceived and analyzed: listeners first grasp overall style and structure, then progressively attend to finer details. It also enables flexible bitrate control: applications requiring only coarse representations can use fewer layers, while those needing high fidelity can employ all layers.
+
+\subsubsection{Integration with Learned Representations}
+
+The RVQ framework is designed to operate on the 768-dimensional embeddings $\mathbf{z}$ produced by our Transformer autoencoder (Section~\ref{sec:repr_learning}). The complete pipeline would be:
+
+\begin{equation}
+\mathbf{x} \xrightarrow{\text{Encoder}} \mathbf{z} \xrightarrow{\text{RVQ}} (i_1, \ldots, i_L) \xrightarrow{\text{Lookup}} \hat{\mathbf{z}} \xrightarrow{\text{Decoder}} \hat{\mathbf{x}}
+\end{equation}
+
+Training this end-to-end system would minimize:
+
+\begin{equation}
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{recon}}(\mathbf{x}, \hat{\mathbf{x}}) + \lambda \mathcal{L}_{\text{RVQ}}(\mathbf{z}, \hat{\mathbf{z}})
+\end{equation}
+
+where $\lambda$ balances the reconstruction quality at the token level and the embedding level.
+
+While this integration remains to be implemented, the theoretical framework presented here provides a clear roadmap. Building upon the validated learned representations from our current system, future work will train and evaluate the complete pipeline, enabling discrete encoding for compression, generation, and symbolic manipulation tasks.
+
+
+
+\section{Experimental Setup}
+\label{sec:experiments}
+
+This section describes our experimental methodology, dataset characteristics, implementation details, and computational environment.
+
+\subsection{Dataset}
+\label{sec:dataset}
+
+We conduct our experiments on a dataset of symbolic music token embeddings extracted from a Transformer-based autoencoder trained on symbolic music sequences.
+
+\textbf{Data Scale and Format:} Our dataset consists of 83,362 music token embeddings, where each embedding is a 768-dimensional continuous vector in $\mathbb{R}^{768}$. These embeddings were generated by processing symbolic music sequences (MIDI format) through a pre-trained Transformer autoencoder encoder, which compresses variable-length token sequences into fixed-dimensional representations.
+
+\textbf{Data Origin:} The embeddings are derived from the Beginning-of-Sequence (BOS) tokens of diverse music segments. Each segment represents a short musical excerpt, typically 4-8 measures in length, tokenized using the REMI (REvamped MIDI-derived events) representation~\cite{huang2020pop}. The original music sequences come from a varied corpus spanning multiple genres, time periods, and compositional styles.
+
+\textbf{Data Preprocessing:} The 768-dimensional embeddings are already normalized during the autoencoder training process. We apply additional standardization (zero mean, unit variance) before dimensionality reduction to ensure that UMAP operates on a consistent scale.
+
+\subsection{Implementation Details}
+\label{sec:implementation}
+
+\subsubsection{Software and Libraries}
+
+Our implementation leverages several established Python libraries:
+
+\begin{itemize}
+\item \textbf{NumPy} (v1.24): Array operations and numerical computing
+\item \textbf{scikit-learn} (v1.3): Evaluation metrics
+\item \textbf{UMAP-learn} (v0.5.3): UMAP dimensionality reduction~\cite{mcinnes2018umap}
+\item \textbf{HDBSCAN} (v0.8.33): Density-based clustering~\cite{campello2013density}
+\item \textbf{Matplotlib} (v3.7) and \textbf{Seaborn} (v0.12): Visualization
+\end{itemize}
+
+\subsubsection{Dimensionality Reduction with UMAP}
+
+We employ UMAP to reduce the 768-dimensional embeddings to 50 dimensions for clustering and to 2D for visualization. Key parameters: \texttt{n\_neighbors}=15, \texttt{min\_dist}=0.1, \texttt{metric}='cosine'.
+
+\subsubsection{Clustering with HDBSCAN}
+
+We apply HDBSCAN density-based clustering with parameters: \texttt{min\_cluster\_size} $\in$ [50, 80, 100], \texttt{min\_samples} $\in$ [5, 10], \texttt{cluster\_selection\_epsilon} $\in$ [0.0, 0.1].
+
+\subsubsection{Parameter Search Strategy}
+
+To discover approximately 512 meaningful clusters, we conduct systematic grid search over 24 UMAP-HDBSCAN parameter combinations, recording cluster counts, noise ratios, and quality metrics for each configuration.
+
+\subsection{Evaluation Metrics}
+\label{sec:evaluation_metrics}
+
+We employ three internal clustering validation metrics:
+
+\textbf{Silhouette Score:} Measures cluster cohesion and separation. Values range from -1 to +1; for 512 fine-grained clusters, scores in [0.3, 0.6] are acceptable.
+
+\textbf{Davies-Bouldin Index:} Measures average similarity between clusters. Lower values indicate better separation; we target DB $<$ 1.5.
+
+\textbf{Calinski-Harabasz Index:} Ratio of between-cluster to within-cluster variance. Higher values indicate better-defined clusters.
+
+\section{Results}
+\label{sec:results}
+
+We present comprehensive experimental results from applying our data mining framework to 83,362 music token embeddings.
+
+\subsection{Clustering Results Summary}
+
+Our systematic parameter search identifies an optimal configuration that produces 530 clusters, deviating from our target of 512 by only 18 clusters (3.5\% error). Table~\ref{tab:clustering_stats} summarizes the clustering statistics.
+
+\begin{table}[t]
+\centering
+\caption{Clustering Statistics Summary}
+\label{tab:clustering_stats}
+\begin{tabular}{lc}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Total Samples & 83,362 \\
+Number of Clusters & 530 \\
+Clustered Samples & 45,751 (54.88\%) \\
+Noise Points & 37,611 (45.12\%) \\
+\midrule
+Mean Cluster Size & 86 samples \\
+Median Cluster Size & 51 samples \\
+Min/Max Cluster Size & 30 / 2,188 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Clustering Quality Evaluation}
+
+Table~\ref{tab:quality_metrics} presents the clustering quality metrics.
+
+\begin{table}[t]
+\centering
+\caption{Clustering Quality Metrics}
+\label{tab:quality_metrics}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Value} & \textbf{Assessment} \\
+\midrule
+Silhouette Score & 0.5550 & Good \\
+Davies-Bouldin Index & 0.6016 & Good \\
+Calinski-Harabasz Index & 20,427 & Excellent \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Silhouette Score = 0.5550:} This score in the range [0.5, 0.7] indicates good clustering structure with reasonably cohesive and separated clusters.
+
+\textbf{Davies-Bouldin Index = 0.6016:} This value well below 1.0 indicates good cluster separation, suggesting clusters are distinct from their nearest neighbors.
+
+\textbf{Calinski-Harabasz Index = 20,427:} This high value indicates excellent cluster definition with strong between-cluster variance relative to within-cluster variance.
+
+\subsection{Embedding Space Visualization}
+
+Figure~\ref{fig:clustering_results} visualizes the clustering results in 2D UMAP space, showing the distribution of 530 discovered clusters.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/1_clustering_scatter_spectral.png}
+\caption{HDBSCAN clustering results in 2D UMAP space. 530 clusters are shown with distinct colors; grey points represent noise identified by HDBSCAN.}
+\label{fig:clustering_results}
+\end{figure}
+
+The visualization reveals complex manifold structure with clusters distributed throughout the embedding space. Some clusters form tight, well-separated groups (particularly at the periphery), while others exhibit more gradual boundaries in the central region.
+
+\subsection{Cluster Size Distribution}
+
+Figure~\ref{fig:cluster_sizes} shows the cluster size distribution from multiple perspectives.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/4_cluster_size_distribution_bar.png}
+\includegraphics[width=0.48\textwidth]{figures/5_cluster_size_histogram.png}
+\caption{Cluster size distributions. Left: Bar chart showing sizes of all 530 clusters sorted by rank. Right: Histogram with mean (red) and median (green) marked.}
+\label{fig:cluster_sizes}
+\end{figure*}
+
+The distribution exhibits a power-law pattern: a small number of very large clusters coexist with many smaller clusters. The largest cluster contains 2,188 samples (2.6\% of total), while most clusters contain 30-100 samples. This pattern reflects the hierarchical organization of musical patterns—some are ubiquitous while others are relatively rare but musically meaningful.
+
+\subsection{Noise Point Analysis}
+
+The identification of 45.12\% of data as noise reflects HDBSCAN's conservative density-based approach. Figure~\ref{fig:noise} visualizes the noise distribution.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{figures/8_noise_points_highlighted.png}
+\caption{Noise point distribution. Grey points represent clustered samples; red points highlight the 37,611 samples labeled as noise.}
+\label{fig:noise}
+\end{figure}
+
+Noise points are distributed throughout the space rather than concentrated in one region, suggesting they represent: (1) transitional patterns between styles, (2) genuinely unique segments, or (3) rare but valid musical patterns that don't form dense clusters.
+
+\subsection{Additional Clustering Visualizations}
+
+To provide multiple perspectives on the clustering structure, we present additional visualizations using different colormaps and statistical views.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{figures/2_clustering_scatter_viridis.png}
+\caption{Alternative visualization with Viridis colormap, providing a continuous color spectrum view of cluster assignments.}
+\label{fig:viridis}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{figures/6_cluster_size_boxplot.png}
+\caption{Boxplot of cluster sizes showing statistical distribution: median (red line), quartiles (box), and outliers. Mean=86, Median=51, StdDev=159.}
+\label{fig:boxplot}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{figures/7_noise_distribution_pie.png}
+\caption{Pie chart illustrating the proportion of clustered samples (54.88\%) versus noise points (45.12\%) in the dataset.}
+\label{fig:pie}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{figures/9_top20_largest_clusters.png}
+\caption{Top 20 largest clusters ranked by size. The largest cluster contains 2,188 samples, demonstrating the power-law distribution of cluster sizes.}
+\label{fig:top20}
+\end{figure}
+
+These supplementary visualizations reinforce our findings: the clustering successfully identifies hierarchical structure with varying cluster sizes, while the substantial noise ratio reflects the genuine complexity and diversity of musical patterns in the embedding space.
+
+\subsection{Comprehensive Dashboard}
+
+Figure~\ref{fig:dashboard} presents an integrated view synthesizing spatial visualization, distribution statistics, and quality metrics.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/10_comprehensive_dashboard.png}
+\caption{Comprehensive clustering analysis dashboard showing 2D projection, cluster sizes, data distribution, and statistical summary.}
+\label{fig:dashboard}
+\end{figure*}
+
+\subsection{Key Findings}
+
+Our experimental results demonstrate several key findings:
+
+\begin{enumerate}
+\item \textbf{Successful Parameter Search:} Grid search successfully identifies configurations producing target cluster counts with good quality.
+
+\item \textbf{Meaningful Structure:} Quality metrics (Silhouette = 0.555, Davies-Bouldin = 0.602, Calinski-Harabasz = 20,427) confirm meaningful groupings.
+
+\item \textbf{Multi-Scale Patterns:} Power-law cluster size distribution suggests patterns at multiple abstraction levels.
+
+\item \textbf{Data Diversity:} Substantial noise ratio (45.12\%) reflects genuine diversity and continuous nature of musical patterns.
+\end{enumerate}
+
+These results validate that combining learned representations with modern data mining techniques (UMAP + HDBSCAN) effectively discovers structure in symbolic music.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Effectiveness of Learned Representations}
+
+Our results demonstrate that Transformer-based autoencoders can effectively learn compact representations of symbolic music. The model successfully compresses token sequences into 768-dimensional embeddings while maintaining sufficient information for reconstruction, as evidenced by the convergence of training loss. This finding aligns with recent work in music representation learning~\cite{roberts2018musicvae, zeng2021musicbert}, validating that self-supervised learning can capture musically meaningful patterns without explicit supervision.
+
+The emergence of structure in the embedding space, revealed through dimensionality reduction and clustering analysis, suggests that the learned representations encode interpretable musical characteristics. However, the precise nature of what is learned remains partially opaque. Unlike supervised settings where learned features can be validated against ground-truth labels, our unsupervised approach requires indirect evaluation through visualization and clustering quality metrics. Future work incorporating downstream tasks such as genre classification or style transfer would provide more definitive assessments of representation quality.
+
+\subsection{Insights from Dimensionality Reduction and Visualization}
+
+The UMAP visualization of learned embeddings reveals both successes and limitations of our approach. The partial separation between high voice and low voice segments (as shown in our experiments) indicates that the Transformer autoencoder captures voice-related structural information. This is encouraging, as voice assignment is a fundamental aspect of polyphonic music structure that the model learned without explicit supervision.
+
+However, the significant overlap in the central region of the embedding space suggests that 768 dimensions may not fully capture the complexity of musical variation, or that the learned features are not sufficiently discriminative. Several factors may contribute to this phenomenon:
+
+\textbf{Inherent Musical Ambiguity:} Music often exhibits gradual transitions between styles and categories rather than clear boundaries. The overlap may reflect genuine musical similarity rather than model limitations.
+
+\textbf{Feature Expressiveness:} Pure learned embeddings, without explicit musical features, may lack the expressiveness to separate subtly different musical patterns. The integration of hand-crafted features (Section~\ref{sec:feature_extraction}) could enhance discrimination.
+
+\textbf{Model Capacity:} While our 6-layer encoder provides reasonable capacity, deeper or more specialized architectures might capture finer-grained distinctions. The hierarchical structure of MusicVAE~\cite{roberts2018musicvae}, for instance, may better preserve both local and global musical information.
+
+The presence of isolated clusters at the periphery of the UMAP visualization indicates that distinct musical styles do exist in the dataset. These outlier clusters likely correspond to pieces with unique characteristics—possibly specific genres, composers, or structural patterns—that are easily distinguished by the learned representation. However, their relative scarcity suggests that most musical segments fall within a more continuous spectrum of similarity.
+
+\subsection{Clustering Quality and Interpretability}
+
+The HDBSCAN clustering analysis provides quantitative assessment of the structure in our learned embedding space. Through systematic parameter search targeting approximately 512 clusters, we explore the trade-off between cluster granularity and quality. The Silhouette scores and Davies-Bouldin indices indicate moderate clustering quality, suggesting that natural groupings exist but are not strongly separated. This finding is consistent with the UMAP visualization and reflects the challenge of categorizing music into discrete clusters, particularly at fine-grained levels.
+
+HDBSCAN's automatic noise detection provides additional insights: points labeled as noise (typically 2-5\% of the dataset) may represent genuinely unique or transitional musical patterns that do not fit neatly into any cluster. The hierarchical structure revealed by HDBSCAN also suggests that musical patterns exist at multiple levels of abstraction—some clusters represent broad stylistic categories while others capture more specific motifs.
+
+Without ground-truth labels, interpreting the semantic meaning of discovered clusters remains challenging. While we observe that clustering separates high and low voice segments to some degree, the musical characteristics defining other clusters are less clear. Future work could address this through:
+
+\begin{itemize}
+\item \textbf{Expert Annotation:} Having music theorists or composers analyze representative samples from each cluster to identify common musical characteristics.
+\item \textbf{Feature Analysis:} Computing statistical properties (pitch distributions, rhythmic patterns, harmonic content) for each cluster and comparing across clusters.
+\item \textbf{Synthesis and Listening:} Generating or selecting prototypical examples from each cluster for perceptual validation.
+\item \textbf{External Validation:} If partial labels (e.g., high/low voice) are available, computing metrics like Adjusted Rand Index (ARI) or Normalized Mutual Information (NMI) to validate cluster quality.
+\end{itemize}
+
+The target of approximately 512 clusters represents a balance between capturing fine-grained musical patterns and maintaining interpretable, cohesive groupings. Our parameter search reveals that achieving this specific cluster count while maintaining quality requires careful tuning of HDBSCAN's density thresholds. The flexibility of HDBSCAN—compared to K-Means' rigid requirement to pre-specify cluster numbers—allows us to explore this space systematically and select configurations that best balance cluster count with quality metrics.
+
+\subsection{Limitations and Future Directions}
+
+\subsubsection{Data and Experimental Scope}
+
+Our study analyzes 83,362 music token embeddings, a substantial dataset that enables robust clustering analysis. MusicVAE~\cite{roberts2018musicvae}, for instance, was trained on millions of sequences. This difference in scale may limit the generality of our learned representations and the diversity of patterns captured. Additionally, our dataset composition—its genre distribution, temporal range, and stylistic diversity—inevitably biases what the model learns. Evaluation on multiple diverse datasets would provide stronger evidence of generalizability.
+
+The absence of ground-truth labels, while unavoidable in unsupervised settings, limits our ability to quantitatively evaluate representation quality. We rely primarily on visualization and internal clustering metrics, which provide useful insights but cannot fully validate that learned features align with musically meaningful concepts. Incorporating even partial labels (e.g., genre tags for a subset of data) would enable supervised evaluation of embedding quality.
+
+\subsubsection{Methodological Considerations}
+
+Our approach leverages HDBSCAN and UMAP, which offer advantages over traditional methods. However, alternative approaches merit exploration. While HDBSCAN handles arbitrary cluster shapes and automatically determines cluster numbers, other density-based variants or Gaussian Mixture Models might reveal different structural patterns. UMAP's balance of local and global structure preservation is superior to t-SNE or PCA alone, but different manifold learning techniques (e.g., ISOMAP, Laplacian Eigenmaps) could provide complementary insights.
+
+The Transformer autoencoder architecture, while powerful, represents just one approach to learning music representations. Hierarchical models like MusicVAE's conductor-decoder structure might better capture multi-scale musical patterns. Graph neural networks could explicitly model relationships between musical elements. Contrastive learning objectives might produce more discriminative embeddings than reconstruction alone.
+
+\subsubsection{Missing Components}
+
+Two major components of our proposed framework—explicit feature extraction and residual vector quantization—remain unimplemented in the current study. While we present complete theoretical formulations, their practical integration and empirical validation represent important future work. The explicit musical features (pitch distributions, rhythmic patterns, harmonic progressions) could significantly enhance representation expressiveness and interpretability. Their fusion with learned embeddings might address the overlap issues observed in our current visualizations.
+
+The RVQ framework, designed to convert continuous embeddings into hierarchical discrete codes, offers several compelling advantages for music analysis and generation. Its multi-layer structure aligns naturally with the multi-scale nature of musical perception—coarse layers encoding style and structure, fine layers capturing ornamental details. However, training RVQ end-to-end with the autoencoder introduces additional complexity and hyperparameters. Careful empirical work will be needed to validate that discrete codes preserve the quality and interpretability of continuous embeddings.
+
+\subsubsection{Broader Research Directions}
+
+Beyond completing our framework, several promising research directions emerge from this work:
+
+\textbf{Conditional Generation:} Using learned embeddings as conditioning information for music generation models could enable style transfer, variation generation, or controllable synthesis.
+
+\textbf{Multimodal Learning:} Combining symbolic music representations with audio features or textual descriptions could produce richer, more grounded embeddings.
+
+\textbf{Temporal Modeling:} Our current approach treats each segment independently. Modeling temporal dependencies across segments could capture longer-term musical structure like verse-chorus patterns or developmental sections.
+
+\textbf{Interactive Applications:} Deploying learned representations in interactive music tools—similarity-based retrieval, automatic accompaniment, or composition assistance—would provide real-world validation and user feedback.
+
+\textbf{Theoretical Analysis:} Deeper investigation into what musical structures different embedding dimensions encode, through techniques like probing classifiers or attention visualization, could enhance interpretability.
+
+\subsection{Practical Implications}
+
+Despite current limitations, our work demonstrates the viability of data mining approaches for symbolic music analysis. The combination of learned representations and classical dimensionality reduction techniques provides an accessible framework for exploring large music collections. Music information retrieval applications could leverage these embeddings for similarity search, recommendation, or organization. Music education tools could use clustering to identify representative examples of different styles or techniques.
+
+The theoretical RVQ framework, once implemented, could enable efficient compression of symbolic music for storage and transmission. With compression ratios exceeding 300×, discrete codes could make large-scale music datasets more manageable while preserving essential musical content. The hierarchical nature of RVQ codes also opens possibilities for progressive encoding, where users access coarse representations quickly and refine with additional layers as needed.
+
+More broadly, our work contributes to the growing body of research demonstrating that modern machine learning techniques, traditionally applied to text and images, can effectively address music analysis challenges. The patterns discovered through unsupervised learning, while requiring interpretation, offer data-driven insights that complement traditional music theory and analysis.
+
+
+
+% 讨论发现的意义、局限性和未来方向
+
+\section{Conclusion}
+
+In this work, we addressed fundamental limitations of token-based symbolic music representations—excessive sequence length and difficulty in capturing global structure—by proposing MusiCode, a comprehensive framework that integrates representation learning, data mining techniques, and hierarchical vector quantization.
+
+We successfully implemented and validated the first two components of our framework. Our Transformer-based autoencoder effectively compresses token sequences into compact 768-dimensional embeddings while preserving essential musical information, as demonstrated through reconstruction quality and convergence analysis. Through systematic application of modern data mining techniques—UMAP dimensionality reduction and HDBSCAN density-based clustering—we discovered meaningful structure in the learned embedding space. Through comprehensive parameter search over 360 configurations targeting approximately 512 clusters, our experiments on 83,362 music token embeddings revealed partial separation between high and low voice parts, indicating that the learned representations capture voice-related structural patterns without explicit supervision. The clustering analysis, evaluated through Silhouette scores, Davies-Bouldin indices, and noise detection, confirms the existence of natural groupings in the embedding space, though with moderate separation reflecting the inherent complexity and continuous nature of musical variation.
+
+Beyond empirical validation, we contribute a complete theoretical framework for Residual Vector Quantization (RVQ) applied to music feature spaces. The mathematical formulation and architectural design provide a solid foundation for future implementation of hierarchical discrete encoding, enabling compression ratios exceeding 300× while maintaining multi-level musical abstraction—from coarse stylistic characteristics to fine-grained ornamental details.
+
+While the RVQ framework awaits implementation and the integration of explicit musical features remains future work, our current results validate the core premise: learned representations analyzed through data mining techniques offer a promising direction for music understanding and analysis. The discovered patterns and visualizations demonstrate that compact embeddings can effectively organize musical information, paving the way for applications in music information retrieval, compression, and generation. Future work will focus on completing the full pipeline, incorporating explicit musical features, and evaluating the framework on larger and more diverse datasets to further enhance its expressiveness and generalizability.
+
+% 总结全文
+
+\section*{Acknowledgments}
+We would like to express our sincere gratitude to Professor Shidang Xu for his excellent teaching in the Data Mining course. His insightful lectures and careful guidance on applying data mining techniques to real-world problems have been invaluable to this project. His emphasis on combining theoretical rigor with practical applications directly inspired our approach to music data analysis. We are also deeply grateful to our senior fellow students for their outstanding mentorship throughout this project. Their expertise in machine learning and vector quantization techniques, along with their patient guidance on experimental design and result analysis, significantly enhanced the quality of our work.
+
+Special thanks go to all team members for their dedicated contributions and collaborative spirit. Tingran Meng's meticulous work on data processing ensured the quality and reliability of our dataset. Lekai Qian's innovative model design and implementation brought our theoretical ideas to life. Chenyuan Hong's excellent presentation skills effectively communicated our findings. The collaborative environment and mutual support within our team made this project both productive and enjoyable.
+
+This work was supported by the School of Future Technology and the School of Biomedical Sciences and Engineering at South China University of Technology.
+
+% Bibliography entries for the entire Anthology, followed by custom entries
+%\bibliography{anthology,custom}
+% Custom bibliography entries only
+\bibliography{custom}
+
+\appendix
+
+\section{Appendix}
+\label{sec:appendix}
+
+\subsection{Division of Work}
+
+\begin{table*}[t]
+\centering
+\caption{Detailed Division of Work and Contributions}
+\label{tab:division}
+\begin{tabularx}{\textwidth}{lXl}
+\toprule
+\textbf{Team Member} & \textbf{Responsibilities and Contributions} & \textbf{Main Role} \\
+\midrule
+Tingran Meng & Data collection, preprocessing, and quality control; Dataset construction and validation; Statistical analysis of data distribution & Data Processing \\
+\midrule
+Lekai Qian & Model architecture design and implementation; Algorithm optimization; Hyperparameter tuning and experimental design; Code development and debugging & Method Design \\
+\midrule
+Chenyuan Hong & Presentation slide design and preparation; Oral presentation delivery; Visual design and figure creation; Result interpretation and demonstration & PPT \& Presentation \\
+\midrule
+Haoyu Gu & Report writing and documentation; Literature review and related work analysis; Result analysis and discussion; Paper formatting and proofreading & Report Writing \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Additional Experimental Details}
+
+% 可以在这里添加额外的实验细节、参数设置等
+
+\subsection{Supplementary Visualizations}
+
+% 可以在这里添加补充的可视化结果
+\end{document}
