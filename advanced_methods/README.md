@@ -14,7 +14,7 @@
 - `parameter_search.py`: 超参数搜索
 - `advanced_evaluation.py`: 深度评估分析
 
-## 消融实验
+## 结果分析
 - 降维方法对比（UMAP vs t-SNE）
 - 超参数敏感性分析
 - 噪声鲁棒性测试
