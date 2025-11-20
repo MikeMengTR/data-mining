@@ -1,0 +1,25 @@
+{
+  "timestamp": "20251119_014300",
+  "kmeans_dir": "baseline_results/kmeans_20251119_012629",
+  "hdbscan_dir": "results/run_20251119_013205",
+  "statistics": {
+    "K-means": {
+      "n_clusters": 512,
+      "n_noise": 0,
+      "silhouette": 0.27005624771118164,
+      "davies_bouldin": 1.2737161110172477,
+      "calinski_harabasz": 4822.8837890625
+    },
+    "HDBSCAN": {
+      "n_clusters": 114,
+      "n_noise": 44660,
+      "silhouette": 0.4913797974586487,
+      "davies_bouldin": 0.7219666950041931,
+      "calinski_harabasz": 45118.25390625
+    }
+  },
+  "agreement": {
+    "ari": 0.46844150873027873,
+    "nmi": 0.8843464142255412
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "timestamp": "20251119_012629",
+  "method": "K-means",
+  "data_shape": [
+    83362,
+    768
+  ],
+  "n_clusters": 512,
+  "n_iter": 3,
+  "inertia": 98430.3828125,
+  "metrics": {
+    "silhouette_score": 0.27005624771118164,
+    "davies_bouldin_score": 1.2737161110172477,
+    "calinski_harabasz_score": 4822.8837890625,
+    "inertia": 98430.3828125
+  },
+  "cluster_sizes": {
+    "mean": 162.81640625,
+    "std": 149.0466890342921,
+    "min": 8,
+    "max": 883,
+    "median": 121.5
+  }
+}
