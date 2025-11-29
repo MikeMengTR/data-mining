@@ -3,7 +3,6 @@
 ## 数据来源
 - **数据集名称**: 音乐编码向量数据集 (MusiCode BOS Vectors)
 - **数据路径**: `data_preprocessing/data/bos_vectors_dim_83362_768.npy`
-- **许可证**: [待补充]
 
 ## 数据描述
 - **样本数量**: 83,362
